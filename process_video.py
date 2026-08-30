@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""Transcribe a video, generate a formatted .srt, and burn it into the video.
+"""Transcribe a video, burn in subtitles, and produce a finished video.
+
+Optionally prepends a title image intro and, by default, overlays the
+Nerd Nite FoCo logo watermark. This is the main entry point of the repo;
+add_title_image.py and add_watermark.py remain available standalone for
+using either feature on its own.
 
 Usage:
-    python subtitle_video.py INPUT.mp4
-    python subtitle_video.py INPUT.mp4 -o OUTPUT.mp4 --model-size medium
-    python subtitle_video.py INPUT.mp4 --srt-only
-    python subtitle_video.py INPUT.mp4 --burn-only --srt existing.srt
+    python process_video.py INPUT.mp4
+    python process_video.py INPUT.mp4 --title-screen title_image.png
+    python process_video.py INPUT.mp4 --no-watermark
+    python process_video.py INPUT.mp4 -o OUTPUT.mp4 --model-size medium
+    python process_video.py INPUT.mp4 --srt-only
+    python process_video.py INPUT.mp4 --burn-only --srt existing.srt
 
 Runs on CPU by default (no GPU required), matching the workflow originally
 prototyped in Google Colab with GPU-enabled faster-whisper.
@@ -14,9 +21,18 @@ prototyped in Google Colab with GPU-enabled faster-whisper.
 import argparse
 import datetime
 import os
+import re
 import shutil
 import subprocess
-import sys
+import tempfile
+
+from add_title_image import add_title_image
+from add_watermark import add_watermark, POSITIONS as WATERMARK_POSITIONS
+
+VALID_IMAGE_EXTS = (".jpg", ".jpeg", ".png")
+
+REPO_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_WATERMARK_IMAGE = os.path.join(REPO_DIR, "assets", "NNFoCoLogo_winter.png")
 
 # Calibrated settings matching the original manual-editing style.
 MAX_CHARS_PER_LINE = 40  # Allows natural 36-42 character line widths
@@ -155,6 +171,23 @@ def burn_subtitles(video_path: str, srt_path: str, output_path: str) -> None:
     print(f"Wrote subtitled video -> '{output_path}'")
 
 
+SRT_TIMESTAMP_RE = re.compile(r"(\d{2}):(\d{2}):(\d{2}),(\d{3})")
+
+
+def shift_srt(input_srt: str, output_srt: str, offset_seconds: float) -> None:
+    """Rewrite an .srt file with every timestamp shifted forward by offset_seconds."""
+
+    def shift_match(match: re.Match) -> str:
+        hours, minutes, secs, millis = (int(g) for g in match.groups())
+        total_seconds = hours * 3600 + minutes * 60 + secs + millis / 1000
+        return format_timestamp(total_seconds + offset_seconds)
+
+    with open(input_srt, encoding="utf-8") as f:
+        content = f.read()
+    with open(output_srt, "w", encoding="utf-8") as f:
+        f.write(SRT_TIMESTAMP_RE.sub(shift_match, content))
+
+
 def default_srt_path(video_path: str) -> str:
     base, _ext = os.path.splitext(video_path)
     return f"{base}.srt"
@@ -162,31 +195,39 @@ def default_srt_path(video_path: str) -> str:
 
 def default_output_path(video_path: str) -> str:
     base, ext = os.path.splitext(video_path)
-    return f"{base}_subtitled{ext or '.mp4'}"
+    return f"{base}_processed{ext or '.mp4'}"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("video", help="Path to the input video file (e.g. .mp4)")
-    parser.add_argument("-o", "--output", help="Path for the subtitled output video (default: INPUT_subtitled.mp4)")
+    parser.add_argument("-o", "--output", help="Path for the finished output video (default: INPUT_processed.mp4)")
     parser.add_argument("--srt", help="Path to read/write the .srt file (default: alongside the input video)")
     parser.add_argument("--model-size", default="medium", help="faster-whisper model size (default: medium; try 'small' for speed or 'large-v3' for accuracy)")
     parser.add_argument("--device", default="cpu", choices=["cpu", "cuda"], help="Device to run transcription on (default: cpu)")
     parser.add_argument("--compute-type", default="int8", help="faster-whisper compute type (default: int8, fastest on CPU)")
-    parser.add_argument("--srt-only", action="store_true", help="Only generate the .srt file; skip burning it into the video")
-    parser.add_argument("--burn-only", action="store_true", help="Only burn an existing .srt into the video; skip transcription (requires --srt)")
+    parser.add_argument("--srt-only", action="store_true", help="Only generate the .srt file; skip burning, title screen, and watermark")
+    parser.add_argument("--burn-only", action="store_true", help="Skip transcription and use an existing .srt (requires --srt or a .srt already alongside the video)")
     parser.add_argument("--force-transcribe", action="store_true", help="Re-transcribe even if the .srt file already exists")
+
+    parser.add_argument("--title-screen", metavar="IMAGE", help="Prepend a still image (.jpg, .jpeg, .png) as a title card before the video")
+    parser.add_argument("--title-hold", type=float, default=5.0, help="Seconds to hold the title screen before the fade begins (default: 5)")
+    parser.add_argument("--title-fade", type=float, default=1.5, help="Seconds the crossfade from the title screen into the video takes (default: 1.5)")
+
+    parser.add_argument("--no-watermark", action="store_true", help="Skip overlaying the logo watermark (it's applied by default)")
+    parser.add_argument("--watermark-image", default=DEFAULT_WATERMARK_IMAGE, help="Path to the watermark image (default: the Nerd Nite FoCo logo in assets/)")
+    parser.add_argument("--watermark-scale", type=float, default=0.08, help="Watermark width as a fraction of the video's width (default: 0.08, i.e. 8%%)")
+    parser.add_argument("--watermark-margin", type=float, default=0.02, help="Watermark padding from the corner, as a fraction of the video's width (default: 0.02; use a negative value to let it hang off the edge instead)")
+    parser.add_argument("--watermark-position", choices=sorted(WATERMARK_POSITIONS), default="bottom-right", help="Corner to place the watermark in (default: bottom-right)")
 
     args = parser.parse_args()
 
     if not os.path.isfile(args.video):
         raise SystemExit(f"Input video not found: {args.video}")
-
-    srt_path = args.srt or default_srt_path(args.video)
-    output_path = args.output or default_output_path(args.video)
-
     if args.burn_only and args.srt_only:
         raise SystemExit("--srt-only and --burn-only are mutually exclusive")
+
+    srt_path = args.srt or default_srt_path(args.video)
 
     if args.burn_only:
         if not os.path.isfile(srt_path):
@@ -203,8 +244,54 @@ def main() -> None:
                 compute_type=args.compute_type,
             )
 
-    if not args.srt_only:
-        burn_subtitles(args.video, srt_path, output_path)
+    if args.srt_only:
+        return
+
+    if args.title_screen:
+        if not os.path.isfile(args.title_screen):
+            raise SystemExit(f"Title screen image not found: {args.title_screen}")
+        if os.path.splitext(args.title_screen)[1].lower() not in VALID_IMAGE_EXTS:
+            raise SystemExit("Title screen image must be a .jpg, .jpeg, or .png file")
+
+    apply_watermark = not args.no_watermark
+    if apply_watermark:
+        if not os.path.isfile(args.watermark_image):
+            raise SystemExit(
+                f"Watermark image not found: {args.watermark_image}\n"
+                "Pass --no-watermark to skip it, or --watermark-image to point at a different file."
+            )
+        if os.path.splitext(args.watermark_image)[1].lower() not in VALID_IMAGE_EXTS:
+            raise SystemExit("Watermark image must be a .jpg, .jpeg, or .png file")
+
+    output_path = args.output or default_output_path(args.video)
+
+    with tempfile.TemporaryDirectory(prefix="process_video_") as tmp_dir:
+        current_video = args.video
+        current_srt = srt_path
+
+        if args.title_screen:
+            titled_video = os.path.join(tmp_dir, "with_title.mp4")
+            add_title_image(current_video, args.title_screen, titled_video, args.title_hold, args.title_fade)
+            shifted_srt = os.path.join(tmp_dir, "shifted.srt")
+            shift_srt(current_srt, shifted_srt, args.title_hold)
+            current_video = titled_video
+            current_srt = shifted_srt
+
+        subtitled_video = os.path.join(tmp_dir, "subtitled.mp4") if apply_watermark else output_path
+        burn_subtitles(current_video, current_srt, subtitled_video)
+        current_video = subtitled_video
+
+        if apply_watermark:
+            add_watermark(
+                current_video,
+                args.watermark_image,
+                output_path,
+                args.watermark_scale,
+                args.watermark_margin,
+                args.watermark_position,
+            )
+
+    print(f"Done -> '{output_path}'")
 
 
 if __name__ == "__main__":
