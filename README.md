@@ -4,6 +4,9 @@ Command-line tools for processing presentation recordings:
 
 - `subtitle_video.py` — automatically transcribes a video and produces a
   copy with subtitles permanently burned in.
+- `add_title_image.py` — prepends a still title image (e.g. a title slide)
+  to a video, holding it for a few seconds and then crossfading into the
+  video.
 - `add_watermark.py` — overlays the Nerd Nite FoCo logo as a corner
   watermark for the whole video.
 
@@ -68,6 +71,36 @@ The transcript is split into subtitle blocks using the same rules as the
 original manual-editing style: blocks break at sentence-ending punctuation,
 after ~80 characters (two 40-character lines), after ~6.5 seconds, or after
 a pause of ~1 second or more — whichever comes first.
+
+## Adding a title image intro
+
+Point `add_title_image.py` at a video and a still image (`.jpg`, `.jpeg`, or
+`.png`) to prepend it as a title card:
+
+```bash
+python add_title_image.py "My Presentation.mp4" title_image.png
+```
+
+This produces `My Presentation_with_title.mp4`: the image is shown for 5
+seconds, then crossfades into the video over 1.5 seconds, after which the
+video plays normally (with its original audio, delayed to stay in sync).
+The image is automatically scaled and letterboxed to match the video's
+resolution.
+
+### Options
+
+```bash
+python add_title_image.py INPUT.mp4 title_image.png -o OUTPUT.mp4  # custom output path
+python add_title_image.py INPUT.mp4 title_image.png --hold 3       # hold the image for 3s instead of 5s
+python add_title_image.py INPUT.mp4 title_image.png --fade 2.5     # a longer 2.5s crossfade
+```
+
+Only `ffmpeg`/`ffprobe` are required — no extra Python libraries. Run
+`python add_title_image.py --help` for the full list of options.
+
+Uses `ffmpeg`'s [`xfade`](https://ffmpeg.org/ffmpeg-filters.html#xfade)
+filter, matching the video's resolution and frame rate under the hood so
+the crossfade renders cleanly.
 
 ## Adding the logo watermark
 
