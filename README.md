@@ -1,12 +1,16 @@
 # Nerd Nite FoCo Video Processing
 
-A simple command-line tool that takes a video file, automatically transcribes
-it, and produces a copy with subtitles permanently burned in — no manual
-editing or cloud notebook required.
+Command-line tools for processing presentation recordings:
 
-It reproduces the workflow originally prototyped in Google Colab
-(transcribe with `faster-whisper`, format into readable subtitle blocks,
-burn in with `ffmpeg`), but runs entirely on your own machine's CPU.
+- `subtitle_video.py` — automatically transcribes a video and produces a
+  copy with subtitles permanently burned in.
+- `add_watermark.py` — overlays the Nerd Nite FoCo logo as a corner
+  watermark for the whole video.
+
+No manual editing or cloud notebook required. `subtitle_video.py`
+reproduces the workflow originally prototyped in Google Colab (transcribe
+with `faster-whisper`, format into readable subtitle blocks, burn in with
+`ffmpeg`), but runs entirely on your own machine's CPU.
 
 ## Setup
 
@@ -64,3 +68,31 @@ The transcript is split into subtitle blocks using the same rules as the
 original manual-editing style: blocks break at sentence-ending punctuation,
 after ~80 characters (two 40-character lines), after ~6.5 seconds, or after
 a pause of ~1 second or more — whichever comes first.
+
+## Adding the logo watermark
+
+Point `add_watermark.py` at a video to overlay the Nerd Nite FoCo logo
+(`assets/NNFoCoLogo_winter.png`) in the bottom-right corner for the video's
+whole duration:
+
+```bash
+python add_watermark.py "My Presentation.mp4" assets/NNFoCoLogo_winter.png
+```
+
+This produces `My Presentation_watermarked.mp4`, with the watermark sized
+to 10% of the video's width and positioned to hang slightly off the corner
+edges, so it reads as a tasteful tag rather than a content-blocking sticker.
+It's scaled relative to the video's own resolution, so it looks right on
+any output size.
+
+### Options
+
+```bash
+python add_watermark.py INPUT.mp4 logo.png -o OUTPUT.mp4       # custom output path
+python add_watermark.py INPUT.mp4 logo.png --scale 0.07        # smaller watermark (7% of width)
+python add_watermark.py INPUT.mp4 logo.png --margin 0.02       # pad inward from the edge instead of hanging off
+python add_watermark.py INPUT.mp4 logo.png --position top-left # place it in a different corner
+```
+
+Only `ffmpeg` is required — no extra Python libraries. Run
+`python add_watermark.py --help` for the full list of options.
