@@ -23,11 +23,11 @@ import datetime
 import os
 import re
 import shutil
-import subprocess
 import tempfile
 
 from add_title_image import add_title_image
 from add_watermark import add_watermark, POSITIONS as WATERMARK_POSITIONS
+from ffmpeg_utils import get_duration, print_progress_bar, run_ffmpeg
 
 VALID_IMAGE_EXTS = (".jpg", ".jpeg", ".png")
 
@@ -87,7 +87,7 @@ def generate_srt(
     model = WhisperModel(model_size, device=device, compute_type=compute_type)
 
     print("Transcribing (this can take a while on CPU)...")
-    segments, _info = model.transcribe(
+    segments, info = model.transcribe(
         video_path, beam_size=5, word_timestamps=True, vad_filter=True
     )
 
@@ -95,6 +95,9 @@ def generate_srt(
     current_chunk = []
 
     for segment in segments:
+        if info.duration > 0:
+            print_progress_bar("Transcribing", segment.end / info.duration)
+
         if not segment.words:
             continue
 
@@ -143,6 +146,10 @@ def generate_srt(
         )
         srt_blocks.append((start_time, end_time, formatted_text))
 
+    if info.duration > 0:
+        print_progress_bar("Transcribing", 1.0)
+        print()
+
     with open(output_srt, "w", encoding="utf-8") as f:
         for idx, (start, end, text) in enumerate(srt_blocks, start=1):
             f.write(
@@ -166,8 +173,7 @@ def burn_subtitles(video_path: str, srt_path: str, output_path: str) -> None:
     vf = f"subtitles='{escaped_srt}'"
     cmd = ["ffmpeg", "-y", "-i", video_path, "-vf", vf, "-c:a", "copy", output_path]
 
-    print("Burning in subtitles with ffmpeg (this can take a while)...")
-    subprocess.run(cmd, check=True)
+    run_ffmpeg(cmd, total_duration=get_duration(video_path), label="Burning in subtitles")
     print(f"Wrote subtitled video -> '{output_path}'")
 
 

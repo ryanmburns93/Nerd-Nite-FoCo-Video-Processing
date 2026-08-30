@@ -5,23 +5,17 @@ Usage:
     python add_title_image.py INPUT.mp4 title_image.png
     python add_title_image.py INPUT.mp4 title_image.jpg -o output.mp4 --hold 5 --fade 1.5
 
-Uses only ffmpeg/ffprobe (already required by subtitle_video.py) - no extra
+Uses only ffmpeg/ffprobe (already required by process_video.py) - no extra
 Python libraries needed.
 """
 
 import argparse
-import json
 import os
 import shutil
-import subprocess
+
+from ffmpeg_utils import ffprobe_json, run_ffmpeg
 
 VALID_IMAGE_EXTS = (".jpg", ".jpeg", ".png")
-
-
-def ffprobe_json(path: str, *args: str) -> dict:
-    cmd = ["ffprobe", "-v", "error", "-of", "json", *args, path]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return json.loads(result.stdout)
 
 
 def get_video_info(video_path: str):
@@ -82,8 +76,7 @@ def add_title_image(video_path: str, image_path: str, output_path: str, hold: fl
         cmd += ["-map", "[outa]", "-c:a", "aac"]
     cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", output_path]
 
-    print("Rendering title image intro with ffmpeg (this can take a while)...")
-    subprocess.run(cmd, check=True)
+    run_ffmpeg(cmd, total_duration=hold + duration, label="Rendering title image intro")
     print(f"Wrote video with title image intro -> '{output_path}'")
 
 

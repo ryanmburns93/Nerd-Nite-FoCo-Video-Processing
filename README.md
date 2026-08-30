@@ -96,6 +96,10 @@ and let it run in the background.
 If your machine does have an NVIDIA GPU with CUDA + cuDNN installed, pass
 `--device cuda --compute-type float16` for a large speedup.
 
+Every long-running step (transcription, title screen rendering, subtitle
+burn-in, and watermarking) prints a live progress bar so you can see it's
+still working rather than staring at a silent terminal.
+
 ## How subtitle formatting works
 
 The transcript is split into subtitle blocks using the same rules as the

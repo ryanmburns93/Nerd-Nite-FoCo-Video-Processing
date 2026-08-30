@@ -13,7 +13,8 @@ correctly regardless of the video's resolution.
 import argparse
 import os
 import shutil
-import subprocess
+
+from ffmpeg_utils import get_duration, run_ffmpeg
 
 VALID_IMAGE_EXTS = (".jpg", ".jpeg", ".png")
 
@@ -64,8 +65,7 @@ def add_watermark(
         output_path,
     ]
 
-    print("Overlaying watermark with ffmpeg...")
-    subprocess.run(cmd, check=True)
+    run_ffmpeg(cmd, total_duration=get_duration(video_path), label="Overlaying watermark")
     print(f"Wrote watermarked video -> '{output_path}'")
 
 
