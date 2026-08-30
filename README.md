@@ -7,6 +7,8 @@ Command-line tools for processing presentation recordings:
 - `add_title_image.py` — prepends a still title image (e.g. a title slide)
   to a video, holding it for a few seconds and then crossfading into the
   video.
+- `add_watermark.py` — overlays the Nerd Nite FoCo logo as a corner
+  watermark for the whole video.
 
 No manual editing or cloud notebook required. `subtitle_video.py`
 reproduces the workflow originally prototyped in Google Colab (transcribe
@@ -99,3 +101,30 @@ Only `ffmpeg`/`ffprobe` are required — no extra Python libraries. Run
 Uses `ffmpeg`'s [`xfade`](https://ffmpeg.org/ffmpeg-filters.html#xfade)
 filter, matching the video's resolution and frame rate under the hood so
 the crossfade renders cleanly.
+
+## Adding the logo watermark
+
+Point `add_watermark.py` at a video to overlay the Nerd Nite FoCo logo
+(`assets/NNFoCoLogo_winter.png`) in the bottom-right corner for the video's
+whole duration:
+
+```bash
+python add_watermark.py "My Presentation.mp4" assets/NNFoCoLogo_winter.png
+```
+
+This produces `My Presentation_watermarked.mp4`, with the watermark sized
+to 8% of the video's width and inset slightly from the corner edges, so it
+reads as a tasteful tag rather than a content-blocking sticker. It's scaled
+relative to the video's own resolution, so it looks right on any output size.
+
+### Options
+
+```bash
+python add_watermark.py INPUT.mp4 logo.png -o OUTPUT.mp4       # custom output path
+python add_watermark.py INPUT.mp4 logo.png --scale 0.05        # smaller watermark (5% of width)
+python add_watermark.py INPUT.mp4 logo.png --margin -0.015     # let it hang off the edge instead of padding inward
+python add_watermark.py INPUT.mp4 logo.png --position top-left # place it in a different corner
+```
+
+Only `ffmpeg` is required — no extra Python libraries. Run
+`python add_watermark.py --help` for the full list of options.
