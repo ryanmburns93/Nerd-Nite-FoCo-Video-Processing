@@ -3,7 +3,7 @@
 
 Usage:
     python add_watermark.py INPUT.mp4 logo.png
-    python add_watermark.py INPUT.mp4 logo.png -o OUTPUT.mp4 --scale 0.1 --margin -0.015
+    python add_watermark.py INPUT.mp4 logo.png -o OUTPUT.mp4 --scale 0.08 --margin 0.02
 
 Uses only ffmpeg - no extra Python libraries needed. The watermark is sized
 relative to the video's width (via ffmpeg's scale2ref filter) so it scales
@@ -79,8 +79,8 @@ def main() -> None:
     parser.add_argument("video", help="Path to the input video file (e.g. .mp4)")
     parser.add_argument("logo", help="Path to the watermark image (.jpg, .jpeg, .png; PNG with transparency recommended)")
     parser.add_argument("-o", "--output", help="Path for the output video (default: INPUT_watermarked.mp4)")
-    parser.add_argument("--scale", type=float, default=0.10, help="Watermark width as a fraction of the video's width (default: 0.10, i.e. 10%%)")
-    parser.add_argument("--margin", type=float, default=-0.015, help="Margin from the corner, as a fraction of the video's width (default: -0.015, a small overlap off the edge; use a positive value to pad inward)")
+    parser.add_argument("--scale", type=float, default=0.08, help="Watermark width as a fraction of the video's width (default: 0.08, i.e. 8%%)")
+    parser.add_argument("--margin", type=float, default=0.02, help="Padding from the corner, as a fraction of the video's width (default: 0.02, a small inset from the edges; use a negative value to let it hang off the edge instead)")
     parser.add_argument("--position", choices=sorted(POSITIONS), default="bottom-right", help="Corner to place the watermark in (default: bottom-right)")
 
     args = parser.parse_args()

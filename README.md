@@ -80,17 +80,16 @@ python add_watermark.py "My Presentation.mp4" assets/NNFoCoLogo_winter.png
 ```
 
 This produces `My Presentation_watermarked.mp4`, with the watermark sized
-to 10% of the video's width and positioned to hang slightly off the corner
-edges, so it reads as a tasteful tag rather than a content-blocking sticker.
-It's scaled relative to the video's own resolution, so it looks right on
-any output size.
+to 8% of the video's width and inset slightly from the corner edges, so it
+reads as a tasteful tag rather than a content-blocking sticker. It's scaled
+relative to the video's own resolution, so it looks right on any output size.
 
 ### Options
 
 ```bash
 python add_watermark.py INPUT.mp4 logo.png -o OUTPUT.mp4       # custom output path
-python add_watermark.py INPUT.mp4 logo.png --scale 0.07        # smaller watermark (7% of width)
-python add_watermark.py INPUT.mp4 logo.png --margin 0.02       # pad inward from the edge instead of hanging off
+python add_watermark.py INPUT.mp4 logo.png --scale 0.05        # smaller watermark (5% of width)
+python add_watermark.py INPUT.mp4 logo.png --margin -0.015     # let it hang off the edge instead of padding inward
 python add_watermark.py INPUT.mp4 logo.png --position top-left # place it in a different corner
 ```
 
