@@ -20,10 +20,12 @@ with `faster-whisper`, format into readable subtitle blocks, burn in with
 1. Install [ffmpeg](https://ffmpeg.org/download.html) and make sure it's on your `PATH`:
    - macOS: `brew install ffmpeg`
    - Ubuntu/Debian: `sudo apt install ffmpeg`
-2. Create a virtual environment and install Python dependencies:
+2. Create a virtual environment and install Python dependencies (run these
+   one at a time, or paste the whole block at once — it's chained with `&&`
+   so a merged paste still runs each step correctly):
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
+   python3 -m venv venv &&
+   source venv/bin/activate &&
    pip install -r requirements.txt
    ```
 
