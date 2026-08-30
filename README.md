@@ -1,19 +1,17 @@
 # Nerd Nite FoCo Video Processing
 
-Command-line tools for processing presentation recordings:
+`process_video.py` is the main command-line tool: point it at a video and it
+transcribes it, burns in subtitles, and overlays the Nerd Nite FoCo logo
+watermark — with an option to prepend a title image intro — producing one
+finished video. No manual editing or cloud notebook required.
 
-- `subtitle_video.py` — automatically transcribes a video and produces a
-  copy with subtitles permanently burned in.
-- `add_title_image.py` — prepends a still title image (e.g. a title slide)
-  to a video, holding it for a few seconds and then crossfading into the
-  video.
-- `add_watermark.py` — overlays the Nerd Nite FoCo logo as a corner
-  watermark for the whole video.
-
-No manual editing or cloud notebook required. `subtitle_video.py`
-reproduces the workflow originally prototyped in Google Colab (transcribe
+It reproduces the workflow originally prototyped in Google Colab (transcribe
 with `faster-whisper`, format into readable subtitle blocks, burn in with
 `ffmpeg`), but runs entirely on your own machine's CPU.
+
+`add_title_image.py` and `add_watermark.py` also remain available as
+standalone tools, for using either feature on its own without the rest of
+the pipeline.
 
 ## Setup
 
@@ -50,26 +48,41 @@ with `faster-whisper`, format into readable subtitle blocks, burn in with
 Point the tool at any video file:
 
 ```bash
-python subtitle_video.py "My Presentation.mp4"
+python process_video.py "My Presentation.mp4"
 ```
 
 This produces:
 - `My Presentation.srt` — the generated subtitle file
-- `My Presentation_subtitled.mp4` — the video with subtitles burned in
+- `My Presentation_processed.mp4` — the finished video, with subtitles
+  burned in and the Nerd Nite FoCo logo watermark overlaid (see
+  [Adding the logo watermark](#adding-the-logo-watermark) below)
+
+To also prepend a title card, pass `--title-screen`:
+
+```bash
+python process_video.py "My Presentation.mp4" --title-screen title_image.png
+```
+
+The title image is shown for 5 seconds and crossfades into the video (see
+[Adding a title image intro](#adding-a-title-image-intro) below); subtitle
+timing is automatically shifted to stay in sync with the delayed video.
 
 ### Options
 
 ```bash
-python subtitle_video.py INPUT.mp4 -o OUTPUT.mp4          # custom output path
-python subtitle_video.py INPUT.mp4 --srt custom.srt        # custom .srt path
-python subtitle_video.py INPUT.mp4 --model-size small      # faster, less accurate
-python subtitle_video.py INPUT.mp4 --model-size large-v3   # slower, more accurate
-python subtitle_video.py INPUT.mp4 --srt-only              # just generate the .srt
-python subtitle_video.py INPUT.mp4 --burn-only --srt a.srt # just burn in an existing .srt
-python subtitle_video.py INPUT.mp4 --force-transcribe      # redo transcription even if .srt exists
+python process_video.py INPUT.mp4 -o OUTPUT.mp4          # custom output path
+python process_video.py INPUT.mp4 --srt custom.srt        # custom .srt path
+python process_video.py INPUT.mp4 --model-size small      # faster, less accurate
+python process_video.py INPUT.mp4 --model-size large-v3   # slower, more accurate
+python process_video.py INPUT.mp4 --srt-only              # just generate the .srt
+python process_video.py INPUT.mp4 --burn-only --srt a.srt # skip transcription, use an existing .srt
+python process_video.py INPUT.mp4 --force-transcribe      # redo transcription even if .srt exists
+python process_video.py INPUT.mp4 --title-screen title.png --title-hold 3 --title-fade 2.5  # tune the title intro
+python process_video.py INPUT.mp4 --no-watermark          # skip the watermark
+python process_video.py INPUT.mp4 --watermark-image logo.png --watermark-scale 0.05 --watermark-position top-left  # tune the watermark
 ```
 
-Run `python subtitle_video.py --help` for the full list of options.
+Run `python process_video.py --help` for the full list of options.
 
 ## Notes on speed
 
@@ -92,29 +105,23 @@ a pause of ~1 second or more — whichever comes first.
 
 ## Adding a title image intro
 
-Point `add_title_image.py` at a video and a still image (`.jpg`, `.jpeg`, or
-`.png`) to prepend it as a title card:
+Passing `--title-screen title_image.png` (`.jpg`, `.jpeg`, or `.png`) to
+`process_video.py` prepends it as a title card: shown for 5 seconds
+(`--title-hold`), then crossfading into the video over 1.5 seconds
+(`--title-fade`), after which the video plays normally with its original
+audio, delayed to stay in sync. The image is automatically scaled and
+letterboxed to match the video's resolution.
+
+`add_title_image.py` is also available standalone, for prepending a title
+image without running the rest of the pipeline:
 
 ```bash
 python add_title_image.py "My Presentation.mp4" title_image.png
 ```
 
-This produces `My Presentation_with_title.mp4`: the image is shown for 5
-seconds, then crossfades into the video over 1.5 seconds, after which the
-video plays normally (with its original audio, delayed to stay in sync).
-The image is automatically scaled and letterboxed to match the video's
-resolution.
-
-### Options
-
-```bash
-python add_title_image.py INPUT.mp4 title_image.png -o OUTPUT.mp4  # custom output path
-python add_title_image.py INPUT.mp4 title_image.png --hold 3       # hold the image for 3s instead of 5s
-python add_title_image.py INPUT.mp4 title_image.png --fade 2.5     # a longer 2.5s crossfade
-```
-
-Only `ffmpeg`/`ffprobe` are required — no extra Python libraries. Run
-`python add_title_image.py --help` for the full list of options.
+This produces `My Presentation_with_title.mp4`. Only `ffmpeg`/`ffprobe` are
+required — no extra Python libraries. Run `python add_title_image.py --help`
+for the full list of options.
 
 Uses `ffmpeg`'s [`xfade`](https://ffmpeg.org/ffmpeg-filters.html#xfade)
 filter, matching the video's resolution and frame rate under the hood so
@@ -122,27 +129,22 @@ the crossfade renders cleanly.
 
 ## Adding the logo watermark
 
-Point `add_watermark.py` at a video to overlay the Nerd Nite FoCo logo
-(`assets/NNFoCoLogo_winter.png`) in the bottom-right corner for the video's
-whole duration:
+`process_video.py` overlays the Nerd Nite FoCo logo
+(`assets/NNFoCoLogo_winter.png`) in the bottom-right corner by default, for
+the whole output video's duration — sized to 8% of the video's width and
+inset slightly from the corner edges, so it reads as a tasteful tag rather
+than a content-blocking sticker. Pass `--no-watermark` to skip it, or
+`--watermark-image`/`--watermark-scale`/`--watermark-margin`/
+`--watermark-position` to customize it.
+
+`add_watermark.py` is also available standalone, for watermarking a video
+without running the rest of the pipeline:
 
 ```bash
 python add_watermark.py "My Presentation.mp4" assets/NNFoCoLogo_winter.png
 ```
 
-This produces `My Presentation_watermarked.mp4`, with the watermark sized
-to 8% of the video's width and inset slightly from the corner edges, so it
-reads as a tasteful tag rather than a content-blocking sticker. It's scaled
-relative to the video's own resolution, so it looks right on any output size.
-
-### Options
-
-```bash
-python add_watermark.py INPUT.mp4 logo.png -o OUTPUT.mp4       # custom output path
-python add_watermark.py INPUT.mp4 logo.png --scale 0.05        # smaller watermark (5% of width)
-python add_watermark.py INPUT.mp4 logo.png --margin -0.015     # let it hang off the edge instead of padding inward
-python add_watermark.py INPUT.mp4 logo.png --position top-left # place it in a different corner
-```
-
-Only `ffmpeg` is required — no extra Python libraries. Run
+This produces `My Presentation_watermarked.mp4`. It's scaled relative to
+the video's own resolution, so it looks right on any output size. Only
+`ffmpeg` is required — no extra Python libraries. Run
 `python add_watermark.py --help` for the full list of options.
